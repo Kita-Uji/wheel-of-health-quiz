@@ -120,6 +120,7 @@
       }, []);
 
       const startQuiz = () => {
+        console.log('START QUIZ CLICKED! Questions:', questions.length);
         if (questions.length === 0) {
           alert('No questions available. Please check that questions.csv is properly loaded.');
           return;
@@ -130,6 +131,7 @@
         setCurrentQuestion(0);
         setSelectedValue(null);
         setShowResults(false);
+        console.log('Quiz started, first question:', shuffled[0]);
       };
 
       const handleNext = () => {
