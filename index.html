@@ -5,24 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Wheel of Health - DIIREN Fitness Legion</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.5.0/dist/Recharts.js"></script>
 </head>
 <body>
   <div id="root"></div>
   
-  <script type="importmap">
-  {
-    "imports": {
-      "react": "https://esm.sh/react@18.2.0",
-      "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-      "recharts": "https://esm.sh/recharts@2.5.0"
-    }
-  }
-  </script>
-  
-  <script type="module">
-    import React, { useState, useEffect } from 'react';
-    import ReactDOM from 'react-dom/client';
-    import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } = Recharts;
 
     const RadarQuizApp = () => {
       const [questions, setQuestions] = useState([]);
@@ -35,94 +28,86 @@
 
       useEffect(() => {
         const loadQuestions = async () => {
-    try {
-      const response = await fetch('./questions.csv');
-      const csvText = await response.text();
-      
-      console.log('CSV loaded, length:', csvText.length);
-      
-      // Split by newlines but respect quotes
-      const rows = [];
-      let currentRow = '';
-      let insideQuotes = false;
-      
-      for (let i = 0; i < csvText.length; i++) {
-        const char = csvText[i];
-        const nextChar = csvText[i + 1];
-        
-        if (char === '"') {
-          insideQuotes = !insideQuotes;
-        }
-        
-        if (char === '\n' && !insideQuotes) {
-          if (currentRow.trim()) {
-            rows.push(currentRow.trim());
+          try {
+            const response = await fetch('./questions.csv');
+            const csvText = await response.text();
+            
+            const rows = [];
+            let currentRow = '';
+            let insideQuotes = false;
+            
+            for (let i = 0; i < csvText.length; i++) {
+              const char = csvText[i];
+              
+              if (char === '"') {
+                insideQuotes = !insideQuotes;
+              }
+              
+              if (char === '\n' && !insideQuotes) {
+                if (currentRow.trim()) {
+                  rows.push(currentRow.trim());
+                }
+                currentRow = '';
+              } else if (char !== '\r') {
+                currentRow += char;
+              }
+            }
+            
+            if (currentRow.trim()) {
+              rows.push(currentRow.trim());
+            }
+            
+            const parsed = [];
+            
+            for (let i = 1; i < rows.length; i++) {
+              const row = rows[i];
+              const values = [];
+              let currentValue = '';
+              let insideQuotes = false;
+              
+              for (let j = 0; j < row.length; j++) {
+                const char = row[j];
+                
+                if (char === '"') {
+                  insideQuotes = !insideQuotes;
+                } else if (char === ',' && !insideQuotes) {
+                  values.push(currentValue.replace(/^"|"$/g, ''));
+                  currentValue = '';
+                } else {
+                  currentValue += char;
+                }
+              }
+              values.push(currentValue.replace(/^"|"$/g, ''));
+              
+              if (values.length >= 7) {
+                parsed.push({
+                  id: parseInt(values[0]),
+                  text: values[1],
+                  category: values[2].trim(),
+                  lowLabel: values[3],
+                  highLabel: values[4],
+                  flipValue: values[5] === 'true',
+                  flagged: values[6] === 'true'
+                });
+              }
+            }
+            
+            console.log('Loaded questions:', parsed.length);
+            setQuestions(parsed);
+            setIsLoading(false);
+          } catch (error) {
+            console.error('Error loading questions:', error);
+            setIsLoading(false);
           }
-          currentRow = '';
-        } else if (char !== '\r') {
-          currentRow += char;
-        }
-      }
-      
-      if (currentRow.trim()) {
-        rows.push(currentRow.trim());
-      }
-      
-      console.log('Total rows:', rows.length);
-      
-      const parsed = [];
-      
-      for (let i = 1; i < rows.length; i++) {
-        const row = rows[i];
-        const values = [];
-        let currentValue = '';
-        let insideQuotes = false;
+        };
         
-        for (let j = 0; j < row.length; j++) {
-          const char = row[j];
-          
-          if (char === '"') {
-            insideQuotes = !insideQuotes;
-          } else if (char === ',' && !insideQuotes) {
-            values.push(currentValue.replace(/^"|"$/g, ''));
-            currentValue = '';
-          } else {
-            currentValue += char;
-          }
-        }
-        values.push(currentValue.replace(/^"|"$/g, ''));
-        
-        if (values.length >= 7) {
-          parsed.push({
-            id: parseInt(values[0]),
-            text: values[1],
-            category: values[2].trim(),
-            lowLabel: values[3],
-            highLabel: values[4],
-            flipValue: values[5] === 'true',
-            flagged: values[6] === 'true'
-          });
-        }
-      }
-      
-      console.log('Total parsed questions:', parsed.length);
-      console.log('Sample question:', parsed[0]);
-      
-      setQuestions(parsed);
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Error loading questions:', error);
-      setIsLoading(false);
-    }
-  };
-  
-  loadQuestions();
+        loadQuestions();
       }, []);
 
       const startQuiz = () => {
-        console.log('START QUIZ CLICKED! Questions:', questions.length);
+        console.log('Button clicked!');
         if (questions.length === 0) {
-          alert('No questions available. Please check that questions.csv is properly loaded.');
+          alert('No questions available.');
           return;
         }
         const shuffled = [...questions].sort(() => Math.random() - 0.5);
@@ -131,7 +116,6 @@
         setCurrentQuestion(0);
         setSelectedValue(null);
         setShowResults(false);
-        console.log('Quiz started, first question:', shuffled[0]);
       };
 
       const handleNext = () => {
@@ -189,34 +173,42 @@
       };
 
       if (isLoading) {
-        return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8 flex items-center justify-center' },
-          React.createElement('div', { className: 'text-center' },
-            React.createElement('h1', { className: 'text-4xl font-bold text-gray-800 mb-4' }, 'Loading...'),
-            React.createElement('p', { className: 'text-gray-600' }, 'Please wait while we load the quiz questions.')
-          )
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8 flex items-center justify-center">
+            <div className="text-center">
+              <h1 className="text-4xl font-bold text-gray-800 mb-4">Loading...</h1>
+              <p className="text-gray-600">Please wait while we load the quiz questions.</p>
+            </div>
+          </div>
         );
       }
 
       if (!showResults && currentQuestion === 0 && Object.keys(answers).length === 0) {
-        return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8' },
-          React.createElement('div', { className: 'max-w-2xl mx-auto' },
-            React.createElement('div', { className: 'bg-white rounded-lg shadow-lg p-8' },
-              React.createElement('h1', { className: 'text-5xl font-bold text-gray-800 mb-8 text-center' }, 'The Wheel of Health'),
-              React.createElement('h3', { className: 'text-lg text-gray-700 mb-8 leading-relaxed text-center' },
-                'Welcome to the DIIREN Fitness Legion. We\'re happy to have you onboard. First, let\'s get you measured up. Take this quiz to receive a personalised report about where your mind and body are at. Use the results of this quiz to identify target areas to work on next.',
-                React.createElement('br'),
-                React.createElement('br'),
-                'When taking the quiz, don\'t think too hard. Follow your gut, and answer truthfully.'
-              ),
-              React.createElement('button', {
-                onClick: startQuiz,
-                className: 'w-full bg-green-600 text-white py-4 px-6 rounded-lg font-semibold text-lg hover:bg-green-700 transition'
-              }, 'Manifest your strength...'),
-              React.createElement('div', { className: 'text-center text-gray-600 mt-4' },
-                `${questions.length} questions available`
-              )
-            )
-          )
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+            <div className="max-w-2xl mx-auto">
+              <div className="bg-white rounded-lg shadow-lg p-8">
+                <h1 className="text-5xl font-bold text-gray-800 mb-8 text-center">The Wheel of Health</h1>
+                
+                <h3 className="text-lg text-gray-700 mb-8 leading-relaxed text-center">
+                  Welcome to the DIIREN Fitness Legion. We're happy to have you onboard. First, let's get you measured up. Take this quiz to receive a personalised report about where your mind and body are at. Use the results of this quiz to identify target areas to work on next.
+                  <br /><br />
+                  When taking the quiz, don't think too hard. Follow your gut, and answer truthfully.
+                </h3>
+                
+                <button
+                  onClick={startQuiz}
+                  className="w-full bg-green-600 text-white py-4 px-6 rounded-lg font-semibold text-lg hover:bg-green-700 transition"
+                >
+                  Manifest your strength...
+                </button>
+                
+                <div className="text-center text-gray-600 mt-4">
+                  {questions.length} questions available
+                </div>
+              </div>
+            </div>
+          </div>
         );
       }
 
@@ -224,128 +216,150 @@
         const question = questions[currentQuestion];
         const progress = (currentQuestion / questions.length) * 100;
 
-        return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-green-50 to-blue-100 p-8 flex items-center justify-center relative' },
-          React.createElement('button', {
-            onClick: () => setShowQuitDialog(true),
-            className: 'absolute top-8 right-8 bg-red-400 text-white py-2 px-4 rounded-lg text-sm hover:bg-red-500 transition'
-          }, 'Quit'),
-          React.createElement('div', { className: 'max-w-3xl w-full' },
-            React.createElement('div', { className: 'bg-white rounded-lg shadow-xl p-12' },
-              React.createElement('div', { className: 'mb-8' },
-                React.createElement('div', { className: 'flex justify-end text-sm text-gray-600 mb-2' },
-                  React.createElement('span', null, `${Math.round(progress)}% Complete`)
-                ),
-                React.createElement('div', { className: 'w-full bg-gray-200 rounded-full h-2' },
-                  React.createElement('div', {
-                    className: 'bg-indigo-600 h-2 rounded-full transition-all duration-300',
-                    style: { width: `${progress}%` }
-                  })
-                )
-              ),
-              React.createElement('h2', { className: 'text-3xl font-bold text-gray-800 mb-12 text-center leading-relaxed' },
-                question.text
-              ),
-              React.createElement('div', { className: 'mb-12' },
-                React.createElement('div', { className: 'flex justify-between items-center mb-4' },
-                  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) =>
-                    React.createElement('button', {
-                      key: num,
-                      onClick: () => setSelectedValue(num),
-                      className: `w-12 h-12 rounded-full border-2 transition-all ${
-                        selectedValue === num
-                          ? 'bg-indigo-600 border-indigo-600 scale-110'
-                          : 'bg-white border-gray-300 hover:border-indigo-400'
-                      }`
-                    },
-                      selectedValue === num && React.createElement('div', { className: 'w-full h-full rounded-full bg-indigo-600' })
-                    )
-                  )
-                ),
-                React.createElement('div', { className: 'flex justify-between text-sm text-gray-600 px-1' },
-                  React.createElement('span', null, question.lowLabel || 'Disagree'),
-                  React.createElement('span', null, question.highLabel || 'Agree')
-                )
-              ),
-              React.createElement('button', {
-                onClick: handleNext,
-                disabled: selectedValue === null,
-                className: `w-full py-4 px-6 rounded-lg font-semibold text-lg transition ${
-                  selectedValue === null
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                }`
-              }, currentQuestion < questions.length - 1 ? 'Next' : 'Finish')
-            )
-          ),
-          showQuitDialog && React.createElement('div', { className: 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50' },
-            React.createElement('div', { className: 'bg-white rounded-lg shadow-2xl p-8 max-w-md w-full' },
-              React.createElement('h3', { className: 'text-2xl font-bold text-gray-800 mb-4' }, 'Are you sure you want to quit?'),
-              React.createElement('p', { className: 'text-gray-600 mb-6' }, 'Your progress will not be saved.'),
-              React.createElement('div', { className: 'flex gap-4' },
-                React.createElement('button', {
-                  onClick: handleQuit,
-                  className: 'flex-1 bg-red-500 text-white py-3 px-6 rounded-lg font-semibold hover:bg-red-600 transition'
-                }, 'Yes, Quit'),
-                React.createElement('button', {
-                  onClick: () => setShowQuitDialog(false),
-                  className: 'flex-1 bg-gray-300 text-gray-800 py-3 px-6 rounded-lg font-semibold hover:bg-gray-400 transition'
-                }, 'Cancel')
-              )
-            )
-          )
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-100 p-8 flex items-center justify-center relative">
+            <button
+              onClick={() => setShowQuitDialog(true)}
+              className="absolute top-8 right-8 bg-red-400 text-white py-2 px-4 rounded-lg text-sm hover:bg-red-500 transition"
+            >
+              Quit
+            </button>
+            
+            <div className="max-w-3xl w-full">
+              <div className="bg-white rounded-lg shadow-xl p-12">
+                <div className="mb-8">
+                  <div className="flex justify-end text-sm text-gray-600 mb-2">
+                    <span>{Math.round(progress)}% Complete</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+
+                <h2 className="text-3xl font-bold text-gray-800 mb-12 text-center leading-relaxed">
+                  {question.text}
+                </h2>
+
+                <div className="mb-12">
+                  <div className="flex justify-between items-center mb-4">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                      <button
+                        key={num}
+                        onClick={() => setSelectedValue(num)}
+                        className={`w-12 h-12 rounded-full border-2 transition-all ${
+                          selectedValue === num
+                            ? 'bg-indigo-600 border-indigo-600 scale-110'
+                            : 'bg-white border-gray-300 hover:border-indigo-400'
+                        }`}
+                      >
+                        {selectedValue === num && (
+                          <div className="w-full h-full rounded-full bg-indigo-600" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex justify-between text-sm text-gray-600 px-1">
+                    <span>{question.lowLabel || 'Disagree'}</span>
+                    <span>{question.highLabel || 'Agree'}</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleNext}
+                  disabled={selectedValue === null}
+                  className={`w-full py-4 px-6 rounded-lg font-semibold text-lg transition ${
+                    selectedValue === null
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  }`}
+                >
+                  {currentQuestion < questions.length - 1 ? 'Next' : 'Finish'}
+                </button>
+              </div>
+            </div>
+
+            {showQuitDialog && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full">
+                  <h3 className="text-2xl font-bold text-gray-800 mb-4">Are you sure you want to quit?</h3>
+                  <p className="text-gray-600 mb-6">Your progress will not be saved.</p>
+                  <div className="flex gap-4">
+                    <button
+                      onClick={handleQuit}
+                      className="flex-1 bg-red-500 text-white py-3 px-6 rounded-lg font-semibold hover:bg-red-600 transition"
+                    >
+                      Yes, Quit
+                    </button>
+                    <button
+                      onClick={() => setShowQuitDialog(false)}
+                      className="flex-1 bg-gray-300 text-gray-800 py-3 px-6 rounded-lg font-semibold hover:bg-gray-400 transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         );
       }
 
       const radarData = calculateRadarData();
 
-      return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-8' },
-        React.createElement('div', { className: 'max-w-4xl mx-auto' },
-          React.createElement('div', { className: 'bg-white rounded-lg shadow-xl p-12' },
-            React.createElement('h1', { className: 'text-4xl font-bold text-gray-800 mb-8 text-center' }, 'Your Results'),
-            React.createElement('div', { className: 'mb-8' },
-              React.createElement(ResponsiveContainer, { width: '100%', height: 500 },
-                React.createElement(RadarChart, { data: radarData },
-                  React.createElement(PolarGrid, { strokeDasharray: '3 3' }),
-                  React.createElement(PolarAngleAxis, { dataKey: 'category', tick: { fill: '#374151', fontSize: 14 } }),
-                  React.createElement(PolarRadiusAxis, { angle: 90, domain: [0, 10], tick: { fill: '#6B7280' } }),
-                  React.createElement(Radar, {
-                    name: 'Score',
-                    dataKey: 'value',
-                    stroke: '#4F46E5',
-                    fill: '#4F46E5',
-                    fillOpacity: 0.6,
-                    strokeWidth: 2
-                  })
-                )
-              )
-            ),
-            React.createElement('div', { className: 'mb-8' },
-              React.createElement('h2', { className: 'text-2xl font-semibold mb-4' }, 'Category Scores'),
-              React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
-                radarData.map((item) =>
-                  React.createElement('div', { key: item.category, className: 'bg-gray-50 rounded-lg p-4' },
-                    React.createElement('div', { className: 'font-semibold text-gray-800' }, item.category),
-                    React.createElement('div', { className: `text-3xl font-bold mt-2 ${getScoreColor(item.value)}` },
-                      `${item.value.toFixed(1)}/10`
-                    )
-                  )
-                )
-              )
-            ),
-            React.createElement('button', {
-              onClick: resetQuiz,
-              className: 'w-full bg-indigo-600 text-white py-4 px-6 rounded-lg font-semibold text-lg hover:bg-indigo-700 transition'
-            }, 'Back to Menu')
-          )
-        )
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white rounded-lg shadow-xl p-12">
+              <h1 className="text-4xl font-bold text-gray-800 mb-8 text-center">Your Results</h1>
+              
+              <div className="mb-8">
+                <ResponsiveContainer width="100%" height={500}>
+                  <RadarChart data={radarData}>
+                    <PolarGrid strokeDasharray="3 3" />
+                    <PolarAngleAxis dataKey="category" tick={{ fill: '#374151', fontSize: 14 }} />
+                    <PolarRadiusAxis angle={90} domain={[0, 10]} tick={{ fill: '#6B7280' }} />
+                    <Radar
+                      name="Score"
+                      dataKey="value"
+                      stroke="#4F46E5"
+                      fill="#4F46E5"
+                      fillOpacity={0.6}
+                      strokeWidth={2}
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="mb-8">
+                <h2 className="text-2xl font-semibold mb-4">Category Scores</h2>
+                <div className="grid grid-cols-2 gap-4">
+                  {radarData.map((item) => (
+                    <div key={item.category} className="bg-gray-50 rounded-lg p-4">
+                      <div className="font-semibold text-gray-800">{item.category}</div>
+                      <div className={`text-3xl font-bold mt-2 ${getScoreColor(item.value)}`}>
+                        {item.value.toFixed(1)}/10
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={resetQuiz}
+                className="w-full bg-indigo-600 text-white py-4 px-6 rounded-lg font-semibold text-lg hover:bg-indigo-700 transition"
+              >
+                Back to Menu
+              </button>
+            </div>
+          </div>
+        </div>
       );
     };
 
-    ReactDOM.createRoot(document.getElementById('root')).render(
-      React.createElement(React.StrictMode, null,
-        React.createElement(RadarQuizApp)
-      )
-    );
+    ReactDOM.createRoot(document.getElementById('root')).render(<RadarQuizApp />);
   </script>
 </body>
 </html>
