@@ -20,12 +20,279 @@
   </script>
   
   <script type="module">
-    import React from 'react';
+    import React, { useState, useEffect } from 'react';
     import ReactDOM from 'react-dom/client';
-    
-    // PASTE THE ENTIRE GITHUB VERSION CODE HERE
-    // (I'll give you this in the next message)
-    
+    import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
+
+    const RadarQuizApp = () => {
+      const [questions, setQuestions] = useState([]);
+      const [currentQuestion, setCurrentQuestion] = useState(0);
+      const [answers, setAnswers] = useState({});
+      const [selectedValue, setSelectedValue] = useState(null);
+      const [showResults, setShowResults] = useState(false);
+      const [showQuitDialog, setShowQuitDialog] = useState(false);
+      const [isLoading, setIsLoading] = useState(true);
+
+      useEffect(() => {
+        const loadQuestions = async () => {
+          try {
+            const response = await fetch('./questions.csv');
+            const csvText = await response.text();
+            
+            const lines = csvText.split('\n').filter(line => line.trim());
+            const parsed = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+              const match = lines[i].match(/^(\d+),"(.*)","(.*)","(.*)","(.*)",(true|false),(true|false)$/);
+              if (match) {
+                parsed.push({
+                  id: parseInt(match[1]),
+                  text: match[2].replace(/""/g, '"'),
+                  category: match[3].replace(/""/g, '"'),
+                  lowLabel: match[4].replace(/""/g, '"'),
+                  highLabel: match[5].replace(/""/g, '"'),
+                  flipValue: match[6] === 'true',
+                  flagged: match[7] === 'true'
+                });
+              }
+            }
+            
+            setQuestions(parsed);
+            setIsLoading(false);
+          } catch (error) {
+            console.error('Error loading questions:', error);
+            setIsLoading(false);
+          }
+        };
+        
+        loadQuestions();
+      }, []);
+
+      const startQuiz = () => {
+        if (questions.length === 0) {
+          alert('No questions available. Please check that questions.csv is properly loaded.');
+          return;
+        }
+        const shuffled = [...questions].sort(() => Math.random() - 0.5);
+        setQuestions(shuffled);
+        setAnswers({});
+        setCurrentQuestion(0);
+        setSelectedValue(null);
+        setShowResults(false);
+      };
+
+      const handleNext = () => {
+        if (selectedValue !== null) {
+          const questionId = questions[currentQuestion].id;
+          const question = questions[currentQuestion];
+          const actualValue = question.flipValue ? (11 - selectedValue) : selectedValue;
+          setAnswers({ ...answers, [questionId]: actualValue });
+          setSelectedValue(null);
+          
+          if (currentQuestion < questions.length - 1) {
+            setCurrentQuestion(currentQuestion + 1);
+          } else {
+            setShowResults(true);
+          }
+        }
+      };
+
+      const calculateRadarData = () => {
+        const categoryScores = {};
+        const categoryCounts = {};
+
+        Object.entries(answers).forEach(([questionId, score]) => {
+          const question = questions.find(q => q.id === parseInt(questionId));
+          if (question) {
+            const cat = question.category;
+            categoryScores[cat] = (categoryScores[cat] || 0) + score;
+            categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+          }
+        });
+
+        return Object.keys(categoryScores).map(category => ({
+          category,
+          value: categoryScores[category] / categoryCounts[category]
+        }));
+      };
+
+      const getScoreColor = (score) => {
+        if (score >= 7) return 'text-green-600';
+        if (score >= 4) return 'text-yellow-600';
+        return 'text-red-600';
+      };
+
+      const resetQuiz = () => {
+        setCurrentQuestion(0);
+        setAnswers({});
+        setSelectedValue(null);
+        setShowResults(false);
+        setShowQuitDialog(false);
+      };
+
+      const handleQuit = () => {
+        setShowQuitDialog(false);
+        resetQuiz();
+      };
+
+      if (isLoading) {
+        return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8 flex items-center justify-center' },
+          React.createElement('div', { className: 'text-center' },
+            React.createElement('h1', { className: 'text-4xl font-bold text-gray-800 mb-4' }, 'Loading...'),
+            React.createElement('p', { className: 'text-gray-600' }, 'Please wait while we load the quiz questions.')
+          )
+        );
+      }
+
+      if (!showResults && currentQuestion === 0 && Object.keys(answers).length === 0) {
+        return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8' },
+          React.createElement('div', { className: 'max-w-2xl mx-auto' },
+            React.createElement('div', { className: 'bg-white rounded-lg shadow-lg p-8' },
+              React.createElement('h1', { className: 'text-5xl font-bold text-gray-800 mb-8 text-center' }, 'The Wheel of Health'),
+              React.createElement('h3', { className: 'text-lg text-gray-700 mb-8 leading-relaxed text-center' },
+                'Welcome to the DIIREN Fitness Legion. We\'re happy to have you onboard. First, let\'s get you measured up. Take this quiz to receive a personalised report about where your mind and body are at. Use the results of this quiz to identify target areas to work on next.',
+                React.createElement('br'),
+                React.createElement('br'),
+                'When taking the quiz, don\'t think too hard. Follow your gut, and answer truthfully.'
+              ),
+              React.createElement('button', {
+                onClick: startQuiz,
+                className: 'w-full bg-green-600 text-white py-4 px-6 rounded-lg font-semibold text-lg hover:bg-green-700 transition'
+              }, 'Manifest your strength...'),
+              React.createElement('div', { className: 'text-center text-gray-600 mt-4' },
+                `${questions.length} questions available`
+              )
+            )
+          )
+        );
+      }
+
+      if (!showResults) {
+        const question = questions[currentQuestion];
+        const progress = (currentQuestion / questions.length) * 100;
+
+        return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-green-50 to-blue-100 p-8 flex items-center justify-center relative' },
+          React.createElement('button', {
+            onClick: () => setShowQuitDialog(true),
+            className: 'absolute top-8 right-8 bg-red-400 text-white py-2 px-4 rounded-lg text-sm hover:bg-red-500 transition'
+          }, 'Quit'),
+          React.createElement('div', { className: 'max-w-3xl w-full' },
+            React.createElement('div', { className: 'bg-white rounded-lg shadow-xl p-12' },
+              React.createElement('div', { className: 'mb-8' },
+                React.createElement('div', { className: 'flex justify-end text-sm text-gray-600 mb-2' },
+                  React.createElement('span', null, `${Math.round(progress)}% Complete`)
+                ),
+                React.createElement('div', { className: 'w-full bg-gray-200 rounded-full h-2' },
+                  React.createElement('div', {
+                    className: 'bg-indigo-600 h-2 rounded-full transition-all duration-300',
+                    style: { width: `${progress}%` }
+                  })
+                )
+              ),
+              React.createElement('h2', { className: 'text-3xl font-bold text-gray-800 mb-12 text-center leading-relaxed' },
+                question.text
+              ),
+              React.createElement('div', { className: 'mb-12' },
+                React.createElement('div', { className: 'flex justify-between items-center mb-4' },
+                  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) =>
+                    React.createElement('button', {
+                      key: num,
+                      onClick: () => setSelectedValue(num),
+                      className: `w-12 h-12 rounded-full border-2 transition-all ${
+                        selectedValue === num
+                          ? 'bg-indigo-600 border-indigo-600 scale-110'
+                          : 'bg-white border-gray-300 hover:border-indigo-400'
+                      }`
+                    },
+                      selectedValue === num && React.createElement('div', { className: 'w-full h-full rounded-full bg-indigo-600' })
+                    )
+                  )
+                ),
+                React.createElement('div', { className: 'flex justify-between text-sm text-gray-600 px-1' },
+                  React.createElement('span', null, question.lowLabel || 'Disagree'),
+                  React.createElement('span', null, question.highLabel || 'Agree')
+                )
+              ),
+              React.createElement('button', {
+                onClick: handleNext,
+                disabled: selectedValue === null,
+                className: `w-full py-4 px-6 rounded-lg font-semibold text-lg transition ${
+                  selectedValue === null
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                }`
+              }, currentQuestion < questions.length - 1 ? 'Next' : 'Finish')
+            )
+          ),
+          showQuitDialog && React.createElement('div', { className: 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50' },
+            React.createElement('div', { className: 'bg-white rounded-lg shadow-2xl p-8 max-w-md w-full' },
+              React.createElement('h3', { className: 'text-2xl font-bold text-gray-800 mb-4' }, 'Are you sure you want to quit?'),
+              React.createElement('p', { className: 'text-gray-600 mb-6' }, 'Your progress will not be saved.'),
+              React.createElement('div', { className: 'flex gap-4' },
+                React.createElement('button', {
+                  onClick: handleQuit,
+                  className: 'flex-1 bg-red-500 text-white py-3 px-6 rounded-lg font-semibold hover:bg-red-600 transition'
+                }, 'Yes, Quit'),
+                React.createElement('button', {
+                  onClick: () => setShowQuitDialog(false),
+                  className: 'flex-1 bg-gray-300 text-gray-800 py-3 px-6 rounded-lg font-semibold hover:bg-gray-400 transition'
+                }, 'Cancel')
+              )
+            )
+          )
+        );
+      }
+
+      const radarData = calculateRadarData();
+
+      return React.createElement('div', { className: 'min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-8' },
+        React.createElement('div', { className: 'max-w-4xl mx-auto' },
+          React.createElement('div', { className: 'bg-white rounded-lg shadow-xl p-12' },
+            React.createElement('h1', { className: 'text-4xl font-bold text-gray-800 mb-8 text-center' }, 'Your Results'),
+            React.createElement('div', { className: 'mb-8' },
+              React.createElement(ResponsiveContainer, { width: '100%', height: 500 },
+                React.createElement(RadarChart, { data: radarData },
+                  React.createElement(PolarGrid, { strokeDasharray: '3 3' }),
+                  React.createElement(PolarAngleAxis, { dataKey: 'category', tick: { fill: '#374151', fontSize: 14 } }),
+                  React.createElement(PolarRadiusAxis, { angle: 90, domain: [0, 10], tick: { fill: '#6B7280' } }),
+                  React.createElement(Radar, {
+                    name: 'Score',
+                    dataKey: 'value',
+                    stroke: '#4F46E5',
+                    fill: '#4F46E5',
+                    fillOpacity: 0.6,
+                    strokeWidth: 2
+                  })
+                )
+              )
+            ),
+            React.createElement('div', { className: 'mb-8' },
+              React.createElement('h2', { className: 'text-2xl font-semibold mb-4' }, 'Category Scores'),
+              React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
+                radarData.map((item) =>
+                  React.createElement('div', { key: item.category, className: 'bg-gray-50 rounded-lg p-4' },
+                    React.createElement('div', { className: 'font-semibold text-gray-800' }, item.category),
+                    React.createElement('div', { className: `text-3xl font-bold mt-2 ${getScoreColor(item.value)}` },
+                      `${item.value.toFixed(1)}/10`
+                    )
+                  )
+                )
+              )
+            ),
+            React.createElement('button', {
+              onClick: resetQuiz,
+              className: 'w-full bg-indigo-600 text-white py-4 px-6 rounded-lg font-semibold text-lg hover:bg-indigo-700 transition'
+            }, 'Back to Menu')
+          )
+        )
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      React.createElement(React.StrictMode, null,
+        React.createElement(RadarQuizApp)
+      )
+    );
   </script>
 </body>
 </html>
