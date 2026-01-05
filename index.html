@@ -43,17 +43,42 @@
             const parsed = [];
             
             for (let i = 1; i < lines.length; i++) {
-              const match = lines[i].match(/^(\d+),"(.*)","(.*)","(.*)","(.*)",(true|false),(true|false)$/);
-              if (match) {
-                parsed.push({
-                  id: parseInt(match[1]),
-                  text: match[2].replace(/""/g, '"'),
-                  category: match[3].replace(/""/g, '"'),
-                  lowLabel: match[4].replace(/""/g, '"'),
-                  highLabel: match[5].replace(/""/g, '"'),
-                  flipValue: match[6] === 'true',
-                  flagged: match[7] === 'true'
-                });
+              try {
+                const line = lines[i];
+                const firstComma = line.indexOf(',');
+                const id = parseInt(line.substring(0, firstComma));
+                
+                const rest = line.substring(firstComma + 1);
+                const parts = [];
+                let current = '';
+                let inQuotes = false;
+                
+                for (let j = 0; j < rest.length; j++) {
+                  const char = rest[j];
+                  if (char === '"') {
+                    inQuotes = !inQuotes;
+                  } else if (char === ',' && !inQuotes) {
+                    parts.push(current);
+                    current = '';
+                  } else {
+                    current += char;
+                  }
+                }
+                parts.push(current);
+                
+                if (parts.length >= 6) {
+                  parsed.push({
+                    id: id,
+                    text: parts[0].replace(/^"|"$/g, '').replace(/""/g, '"'),
+                    category: parts[1].replace(/^"|"$/g, '').replace(/""/g, '"').trim(),
+                    lowLabel: parts[2].replace(/^"|"$/g, '').replace(/""/g, '"'),
+                    highLabel: parts[3].replace(/^"|"$/g, '').replace(/""/g, '"'),
+                    flipValue: parts[4].trim() === 'true',
+                    flagged: parts[5].trim() === 'true'
+                  });
+                }
+              } catch (e) {
+                console.error('Failed to parse line:', lines[i], e);
               }
             }
             
