@@ -38,8 +38,14 @@
           try {
             const response = await fetch('./questions.csv');
             const csvText = await response.text();
+
+            console.log('CSV loaded, length:', csvText.length);
+            console.log('First 500 chars:', csvText.substring(0, 500));
             
             const lines = csvText.split('\n').filter(line => line.trim());
+            console.log('Total lines:', lines.length);
+            console.log('First line:', lines[0]);
+            console.log('Second line:', lines[1]);
             const parsed = [];
             
             for (let i = 1; i < lines.length; i++) {
